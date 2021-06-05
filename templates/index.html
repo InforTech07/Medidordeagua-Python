@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="100">
+    <link rel="stylesheet" href="https://bootswatch.com/4/flatly/bootstrap.min.css">
+    <link rel="stylesheet" href="{{url_for('static',filename='css/main.css')}}">
+    <script type="text/javascript" src="{{url_for('static',filename='jquery-1.12.0.min.js')}}"></script>
+    <script type="text/javascript" src="{{url_for('static',filename='dist/Chart.bundle.min.js')}}"></script>
+    <title>Aplicacion</title>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <a class="navbar-brand" href="/"> Medidor de nivel de agua</a>
+    </nav>
+    <div class="container pt-4">
+        {% with messages = get_flashed_messages()  %}
+        {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+        <div class="row">
+            <div class="col-md-4 pt-2">
+                <div class="card text-white bg-primary mb-3">
+                    <div class="card-header" wfd-id="40">CONFIGURACION DEL TANQUE</div>
+                    <div class="card-body" wfd-id="40">
+                        <form action="{{url_for('add_settings')}}" method="POST">
+                            <div class="form-group">
+                              <input type="number" class="form-control" name="ancho" placeholder="Ancho en cm">
+                            </div>
+                            <div class="form-group">
+                              <input type="number" class="form-control" name="largo" placeholder="Largo en cm">
+                            </div>
+                            <div class="form-group">
+                              <input type="number" class="form-control" name="alto" placeholder="Altura en cm">
+                            </div>
+                            <div class="form-group">
+                                <input type="number" class="form-control" name="minimo" placeholder="Porcentaje minimo %">
+                            </div>
+                            <div class="form-group">
+                                <input type="number" class="form-control" name="maximo" placeholder="Porcentaje maximo %">
+                            </div>
+                            <div class="form-group">
+                                <input type="number" class="form-control" name="radio" placeholder="radio del cilindro">
+                            </div>
+                            <button class="btn btn-info btn-block">
+                              Guardar e Iniciar
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-5">
+                <div class="card text-white bg-primary mb-3">
+                    <div class="card-header" wfd-id="40">ARQUITECTURA DE COMPUTADORAS I</div>
+                    <div class="card-body" wfd-id="40">
+                      <h5 class="card-title">Hadware:</h5>
+                      <p class="card-text">- raspberry pi <br>- sensor ultrasonico</p>
+                      <h5 class="card-title">Software:</h5>
+                      <p class="card-text">- raspberrypiOs <br>- Lenguaje python <br> - framework flask</p>
+                      <p id="procesos"> Procesos: </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-primary mb-3">
+                    <div class="card-header" wfd-id="40">ESTADO: (<span class="result" id="porcentaje"></span>)</div>
+                    <div class="card-body" wfd-id="40">
+                        <span id="estado" class="result"></span>
+                        <div class="tanque">
+                            <div class="llenado">
+                                <div class="altura"></div>
+                            </div>
+                        </div>
+                        <span id="volume" class="result"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="list-group mt-4" style="width: 100%;">
+                <strong>---Historial de llenado de agua---</strong> 
+            </div>
+            <div id="canvas-container" style="width:50%;">
+                <canvas id="chart" width="500" height="350"></canvas>
+            </div>
+        </div>
+    </div>
+<script type="text/javascript">
+    
+        var r = document.querySelector(':root');
+        var p = document.getElementById('porcentaje');
+        var e = document.getElementById('estado');
+        var v = document.getElementById('volume');
+        let eBajo = 0;
+        let eEstable = 0;
+        let eLleno = 0;
+    
+        var datos = {
+			type: "pie",
+			data : {
+				datasets :[{
+					data : [
+						5,
+						10,
+						40,
+					],
+					backgroundColor: [
+						"#F7464A",
+						"#46BFBD",
+						"#FDB45C",
+					],
+				}],
+				labels : [
+					"Bajo",
+					"Estable",
+					"Lleno",
+				]
+			},
+			options : {
+				responsive : true,
+			}
+		};
+        var canvas = document.getElementById('chart').getContext('2d');
+		window.pie = new Chart(canvas, datos);
+
+        function set_progress(progress){
+            r.style.setProperty('--altura',progress);
+        }
+    
+        setInterval( async ()=>{
+
+            let response = await fetch('http://localhost:3000/getvolumen');
+            let data = await response.json();      
+            var volume = 100 - data.porcentaje;
+            set_progress(volume +'%');
+            if(data.estado== null){
+                console.log('valor nulo');
+            }
+            else if(data.estado == 'bajo'){
+                eBajo += 1;
+            }
+            else if(data.estado == 'lleno'){
+                eLleno +=1;
+            }
+            else{
+                eEstable +=1;
+            }
+            e.innerHTML = data.estado;
+            p.innerHTML = data.porcentaje +'%';
+            v.innerHTML = data.volume + ' militros';
+            
+            datos.data.datasets.splice(0);
+                var newData = {
+                    backgroundColor : [
+                        "#F7464A",
+                        "#46BFBD",
+                        "#FDB45C",
+                    ],
+                    data : [eBajo, eEstable, eLleno]
+                };
+
+                datos.data.datasets.push(newData);
+
+                window.pie.update();
+    },4000);
+  
+</script>
+<!-- scripts -->
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
+</body>
+</html>
